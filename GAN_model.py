@@ -172,10 +172,10 @@ class DCGAN(object):
             print(" [!] Load failed...")
 
         z_pool = np.load('./outputs/features_5.npy')
-
+        current_num = z_pool.shape[0]
         for i in xrange(counter,config.iter):
 
-            random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * 4999).astype(np.int32)
+            random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num).astype(np.int32)
             batch_z = np.zeros([self.batch_size,self.z_dim],dtype = np.float32)
             batch_z = z_pool[random_index[:]]
             # batch_z = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]) \
@@ -226,12 +226,12 @@ class DCGAN(object):
             #     except:
             #         print("one pic error!...")
             if (i > 3000):
-                sample_index = np.round(np.random.uniform(0,1-1e-20,[self.batch_size]) * 4999).astype(np.int32)
+                sample_index = np.round(np.random.uniform(0,1-1e-20,[self.batch_size]) * current_num).astype(np.int32)
                 # sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
                 sample_z = np.zeros([self.batch_size,self.z_dim],dtype = np.float32)
                 sample_z = z_pool[random_index[:]]
                 samples = 255 * inverse_transform(self.sess.run(self.sampler,feed_dict = {self.z: sample_z}))
-                for num_images in range(self.sample_num):2
+                for num_images in range(self.sample_num):
                     cv2.imwrite('./{}/{}/{:6d}_{:2d}.png'.format(self.sample_dir,self.dataset,i,num_images),samples[num_images,:,:,:])
             if np.mod(i, 500) == 2:
                 self.save(self.checkpoint_dir, i)
@@ -398,8 +398,6 @@ def main(_):
                 sample_dir=FLAGS.sample_dir)
         dcgan.train(FLAGS)
 
-        thread.start_new_thread(dcgan0.train(FLAGS))
-        thread.start_new_thread(dcgan1.train(FLAGS))
 
 if __name__ == '__main__':
     tf.app.run()
