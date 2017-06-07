@@ -172,7 +172,7 @@ class DCGAN(object):
             print(" [!] Load failed...")
 
         z_pool = np.load('./outputs/features_5.npy')
-        current_num = z_pool.shape[0]
+        current_num = z_pool.shape[0] -1 
         for i in xrange(counter,config.iter):
 
             random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num).astype(np.int32)
