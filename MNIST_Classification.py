@@ -68,7 +68,7 @@ class Classification_Model(object):
 
     def change_dataset(self, dataset_name = "0"):
         self.dataset_name = dataset_name
-        self.file_list = glob(os.path.join("./data", self.dataset_name, self.input_fname_pattern))
+        self.file_list = glob(os.path.join("./samples", self.dataset_name, self.input_fname_pattern))
         self.filename_queue = tf.train.string_input_producer(self.file_list[:])
         self.image_reader = tf.WholeFileReader()
         _, self.image_file = self.image_reader.read(self.filename_queue)
