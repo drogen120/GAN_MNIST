@@ -6,9 +6,10 @@ from glob import glob
 import tensorflow as tf
 import numpy as np
 from six.moves import xrange
-
+import cv2
 from ops import *
 from utils import *
+import thread
 
 def conv_out_size_same(size, stride):
     return int(math.ceil(float(size) / float(stride)))
@@ -33,6 +34,7 @@ class DCGAN(object):
         dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
         c_dim: (optional) Dimension of image color. For grayscale input, set to 1. [3]
         """
+        self.dataset = dataset_name
         self.sess = sess
         self.crop = crop
 
@@ -68,7 +70,7 @@ class DCGAN(object):
         self.dataset_name = dataset_name
         self.input_fname_pattern = input_fname_pattern
         self.checkpoint_dir = checkpoint_dir
-
+        self.sample_dir = sample_dir
 
         # self.data = glob(os.path.join("./data",self.dataset_name,self.input_fname_pattern))
         # self.c_dim = c_dim
@@ -92,7 +94,7 @@ class DCGAN(object):
                                             num_threads = num_preprocess_threads,
                                             capacity = min_queue_examples + 3*self.batch_size,
                                             min_after_dequeue = min_queue_examples)
-        self.batch_images = transform(self.batch_images)                                    
+        self.batch_images = transform(self.batch_images)
         self.build_model()
 
     def build_model(self):
@@ -153,9 +155,9 @@ class DCGAN(object):
           self.G_sum, self.d_loss_fake_sum, self.g_loss_sum])
         self.d_sum = merge_summary(
             [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
-        self.writer = SummaryWriter("./logs", self.sess.graph)
+        self.writer = SummaryWriter("./logs/{}/".format(self.dataset), self.sess.graph)
 
-        sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
+        # sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
 
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(coord = coord )
@@ -171,7 +173,7 @@ class DCGAN(object):
 
         for i in xrange(counter,config.iter):
 
-            batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]) \
+            batch_z = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]) \
                   .astype(np.float32)
             _, summary_str = self.sess.run([d_optim, self.d_sum],
                 feed_dict={ self.z: batch_z })
@@ -194,24 +196,37 @@ class DCGAN(object):
             print("iteration: [%2d]  time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
               % (i,time.time() - start_time, errD_fake+errD_real, errG))
 
-            if np.mod(i, 100) == 1:
-                try:
-                    samples, d_loss, g_loss = self.sess.run(
-                    [self.sampler, self.d_loss, self.g_loss],
-                    feed_dict={
-                    self.z: sample_z,
-                    }
-                    )
-                    manifold_h = int(np.ceil(np.sqrt(samples.shape[0])))
-                    manifold_w = int(np.floor(np.sqrt(samples.shape[0])))
-                    save_images(samples, [manifold_h, manifold_w],
-                        './{}/train_{:02d}.png'.format(config.sample_dir, i))
-                    print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
-                except:
-                    print("one pic error!...")
-
+            # if np.mod(i, 10) == 1:
+            #     try:
+            #         # samples, d_loss, g_loss = self.sess.run(
+            #         # [self.sampler, self.d_loss, self.g_loss],
+            #         # feed_dict={
+            #         # self.z: sample_z,
+            #         # }
+            #         # )
+            #         for k in range(2):
+            #             sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
+            #             samples = self.sess.run(
+            #             self.sampler,
+            #             feed_dict={
+            #             self.z: sample_z,
+            #             }
+            #             )
+            #             manifold_h = int(np.ceil(np.sqrt(samples.shape[0])))
+            #             manifold_w = int(np.floor(np.sqrt(samples.shape[0])))
+            #             save_images(samples, [manifold_h, manifold_w],
+            #                 './{}/train_{:02d}_{:d}.png'.format(config.sample_dir, i,k))
+            #             print ('succed save once ')
+            #         # print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
+            #     except:
+            #         print("one pic error!...")
+            if (i > 3000):
+                sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
+                samples = 255 * inverse_transform(self.sess.run(self.sampler,feed_dict = {self.z: sample_z}))
+                for num_images in range(self.sample_num):
+                    cv2.imwrite('./{}/{}/{:6d}_{:2d}.png'.format(self.sample_dir,self.dataset,i,num_images),samples[num_images,:,:,:])
             if np.mod(i, 500) == 2:
-                self.save(config.checkpoint_dir, i)
+                self.save(self.checkpoint_dir, i)
 
         coord.request_stop()
         coord.join(threads)
@@ -326,6 +341,29 @@ class DCGAN(object):
             print(" [*] Failed to find a checkpoint")
             return False, 0
 
+
+flags = tf.app.flags
+flags.DEFINE_integer("iter", 10000, "iter to train ")
+flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
+flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
+flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
+flags.DEFINE_integer("sample_num", 64, "The size of sample images ")
+flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
+flags.DEFINE_integer("input_height", 28, "The size of image to use (will be center cropped). [108]")
+flags.DEFINE_integer("input_width", 28, "The size of image to use (will be center cropped). If None, same value as input_height [None]")
+flags.DEFINE_integer("output_height", 28, "The size of the output images to produce [64]")
+flags.DEFINE_integer("output_width", 28, "The size of the output images to produce. If None, same value as output_height [None]")
+flags.DEFINE_string("dataset", "5", "The name of dataset [...]")
+flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
+flags.DEFINE_string("checkpoint_dir", "./checkpoint", "Directory name to save the checkpoints [checkpoint]")
+flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image samples [samples]")
+flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
+flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
+flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
+FLAGS = flags.FLAGS
+
+
+
 def main(_):
 
     if not os.path.exists(FLAGS.checkpoint_dir):
@@ -344,7 +382,7 @@ def main(_):
                 output_width=FLAGS.output_width,
                 output_height=FLAGS.output_height,
                 batch_size=FLAGS.batch_size,
-                sample_num=FLAGS.batch_size,
+                sample_num=FLAGS.sample_num,
                 dataset_name=FLAGS.dataset,
                 input_fname_pattern=FLAGS.input_fname_pattern,
                 crop=FLAGS.crop,
@@ -352,24 +390,8 @@ def main(_):
                 sample_dir=FLAGS.sample_dir)
         dcgan.train(FLAGS)
 
-flags = tf.app.flags
-flags.DEFINE_integer("iter", 10000, "iter to train ")
-flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
-flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
-flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
-flags.DEFINE_integer("input_height", 28, "The size of image to use (will be center cropped). [108]")
-flags.DEFINE_integer("input_width", 28, "The size of image to use (will be center cropped). If None, same value as input_height [None]")
-flags.DEFINE_integer("output_height", 28, "The size of the output images to produce [64]")
-flags.DEFINE_integer("output_width", 28, "The size of the output images to produce. If None, same value as output_height [None]")
-flags.DEFINE_string("dataset", "5", "The name of dataset [...]")
-flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
-flags.DEFINE_string("checkpoint_dir", "./checkpoint", "Directory name to save the checkpoints [checkpoint]")
-flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image samples [samples]")
-flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
-flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
-flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-FLAGS = flags.FLAGS
+        thread.start_new_thread(dcgan0.train(FLAGS))
+        thread.start_new_thread(dcgan1.train(FLAGS))
 
 if __name__ == '__main__':
     tf.app.run()
