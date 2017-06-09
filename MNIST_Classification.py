@@ -12,7 +12,7 @@ class Classification_Model(object):
         self.img_size = 28
         self.feature_size = 100
         self.end_points = {}
-        self.input_fname_pattern = '*.jpg'
+        self.input_fname_pattern = '*.png'
         self.batch_size = 50
 
     def transform(self, img):
@@ -73,7 +73,7 @@ class Classification_Model(object):
         self.image_reader = tf.WholeFileReader()
         _, self.image_file = self.image_reader.read(self.filename_queue)
 
-        self.image = tf.image.decode_jpeg(self.image_file)
+        self.image = tf.image.decode_png(self.image_file)
 
         self.image = tf.cast(tf.reshape(self.image, shape=[28, 28, 1]), dtype=tf.float32)
 
