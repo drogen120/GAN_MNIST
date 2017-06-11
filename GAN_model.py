@@ -271,7 +271,7 @@ class DCGAN(object):
 
             batch_size = tf.shape(h0)[0]
             self.h1, self.h1_w, self.h1_b = deconv2d(
-                h0, tf.pack([batch_size, s_h8, s_w8]), self.gf_dim*4], name='g_h1', with_w=True)
+                h0, tf.pack([batch_size, s_h8, s_w8, self.gf_dim*4]), name='g_h1', with_w=True)
             h1 = tf.nn.relu(self.g_bn1(self.h1))
 
             h2, self.h2_w, self.h2_b = deconv2d(
