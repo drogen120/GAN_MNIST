@@ -354,17 +354,21 @@ class DCGAN(object):
 
         # coord.request_stop()
         # coord.join(threads)
-        output = []
+
         for j in range(10):
-            for k in range(100):
-                random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
-                batch_z_sample = z_pool[j][random_index[:]]
-                if k == 0:
-                    samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )
-                else:
-                    samples = tf.concat([samples,self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )],0)
-            output.append(samples)
-        return output
+            record_filename = "%s/gen_%d.tfrecord"%(self.sample_dir,j)
+            with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
+                for k in range(100):
+                    random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
+                    batch_z_sample = z_pool[j][random_index[:]]
+                    samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )*255.0
+                    img_raw = samples.astype(np.uint8).tostring()
+                    label_raw = int(j)
+                    example = to_tfexample_raw(img_raw,label_raw)
+                    tfrecord_writer.write(example.SerializeToString())
+                tfrecord_writer.close()
+
+
 
     def discriminator(self, image, y=None, reuse=False,name = None ):
         with tf.variable_scope("discriminator_%s"%name) as scope:
@@ -521,7 +525,7 @@ def main(_):
                 crop=FLAGS.crop,
                 checkpoint_dir=FLAGS.checkpoint_dir,
                 sample_dir=FLAGS.sample_dir)
-        _ = dcgan.train(FLAGS)
+        dcgan.train(FLAGS)
 
 if __name__ == '__main__':
     tf.app.run()
