@@ -17,6 +17,45 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 # print (np.where(mnist.test.labels[0]>0)[0][0])
 
+# test for tfrecord_writer
+# for j in range(2):
+#     record_filename = "%s/gen_%d.tfrecord"%('./',j)
+#     with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
+#         for k in range(100):
+#             samples = np.reshape(mnist.train.images[k],[28,28])*255.0
+#             img_raw = samples.astype(np.uint8).tostring()
+#             label_raw = int(j)
+#             example = to_tfexample_raw(img_raw,label_raw)
+#             tfrecord_writer.write(example.SerializeToString())
+#         tfrecord_writer.close()
+# raise
+
+
+# test for read tf_record
+record_iterator = tf.python_io.tf_record_iterator(path = './gen_0.tfrecord')
+count = 0
+for string_record in record_iterator:
+
+    example = tf.train.Example()
+    example.ParseFromString(string_record)
+
+    label = int(example.features.feature['label'].int64_list.value[0])
+
+    print (label)
+
+    img = (example.features.feature['image'].bytes_list.value[0])
+    img_1d = np.fromstring(img,dtype = np.uint8)
+    #
+    img_f = img_1d.reshape((28,28,-1))
+    #
+    #
+    # print (img_f)
+    cv2.imshow('img-f',img_f)
+    cv2.waitKey(0)
+raise
+
+
+
 for i in range(10):
     if not os.path.exists('./train_data'):
         os.mkdir('./train_data')
