@@ -89,3 +89,32 @@ class Classification_Model(object):
         batch_images = self.transform(batch_images)
         batch_labels = tf.one_hot(tf.ones([self.batch_size], dtype=tf.int32) * int(self.dataset_name), depth=10)
         return batch_images, batch_labels
+
+    def read_tf(self,filename_queue):
+
+        reader = tf.TFRecordReader()
+        _,serialized_example = reader.read(filename_queue)
+        features = tf.parse_single_example(
+            serialized_example,
+            features ={
+                'image': tf.FixedLenFeature([],tf.string),
+                'label': tf.FixedLenFeature([],tf.int64),
+            }
+        )
+        label = tf.cast(features['label'],tf.int32)
+        image = tf.decode_raw(features['image'],tf.uint8)
+        image = tf.reshape(image,(28,28,1))
+
+        num_preprocess_threads = 1
+        min_queue_examples = 256
+
+        image,label = tf.train.shuffle_batch([image,label],batch_size = self.batch_size,
+            num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,
+                min_after_dequeue = min_queue_examples)
+        return image,label
+
+    def get_batch_tf(self,tfrecords_path):
+        tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
+        filename_queue = tf.train.string_input_producer(tfrecords_filename,num_epochs = 100)
+        image,label = self.read_tf(filename_queue)
+        return image,label
