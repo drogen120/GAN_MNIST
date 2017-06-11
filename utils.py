@@ -18,6 +18,19 @@ pp = pprint.PrettyPrinter()
 
 get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 
+def _int64_feature(values):
+  if not isinstance(values, (tuple, list)):
+    values = [values]
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=values))
+
+def _bytes_feature(values):
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[values]))
+
+def to_tfexample_raw(image, label):
+  return tf.train.Example(features=tf.train.Features(feature={
+    'image': _bytes_feature(image),
+    'label': _int64_feature(label)}))
+
 def show_all_variables():
   model_vars = tf.trainable_variables()
   slim.model_analyzer.analyze_vars(model_vars, print_info=True)
