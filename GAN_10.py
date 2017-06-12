@@ -356,16 +356,18 @@ class DCGAN(object):
         # coord.join(threads)
 
         for j in range(10):
-            record_filename = "%s/gen_%d.tfrecord"%(self.sample_dir,j)
+            record_filename = "%s/gen_%d.tfrecord"%('./data_tf',j)
             with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
                 for k in range(100):
                     random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
                     batch_z_sample = z_pool[j][random_index[:]]
                     samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )*255.0
-                    img_raw = samples.astype(np.uint8).tostring()
-                    label_raw = int(j)
-                    example = to_tfexample_raw(img_raw,label_raw)
-                    tfrecord_writer.write(example.SerializeToString())
+                    for count in range(self.batch_size):
+                        img_raw = np.reshape(samples[count,:,:,:],[28,28,1])
+                        img_raw = img_raw.astype(np.uint8).tostring()
+                        label_raw = int(j)
+                        example = to_tfexample_raw(img_raw,label_raw)
+                        tfrecord_writer.write(example.SerializeToString())
                 tfrecord_writer.close()
 
 
@@ -482,7 +484,7 @@ class DCGAN(object):
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("iter", 10000, "iter to train ")
+flags.DEFINE_integer("iter", 9002, "iter to train ")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
