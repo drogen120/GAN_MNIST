@@ -10,6 +10,7 @@ import cv2
 from ops import *
 from utils import *
 import thread
+from tensorflow.examples.tutorials.mnist import input_data
 
 def conv_out_size_same(size, stride):
     return int(math.ceil(float(size) / float(stride)))
@@ -276,7 +277,7 @@ class DCGAN(object):
                   % (str(j),i,time.time() - start_time, errD_fake+errD_real, errG))
                 print('**************************')
 
-            if np.mod(i ,1000) ==1:
+            if np.mod(i ,1000) ==0:
                 for j in range(10):
                     if not os.path.exists('./{}/{}'.format(config.sample_dir,str(j))):
                         os.makedirs('./{}/{}'.format(config.sample_dir,str(j)))
@@ -290,7 +291,7 @@ class DCGAN(object):
                     save_images(samples, [manifold_h, manifold_w],
                     './{}/{}/train_{:02d}.png'.format(config.sample_dir,str(j),i))
                     print ('succed save once ')
-            if np.mod(i, 1000) == 1:
+            if np.mod(i, 1000) == 0:
                 self.save(self.checkpoint_dir, i)
 
         coord.request_stop()
@@ -354,22 +355,39 @@ class DCGAN(object):
 
         # coord.request_stop()
         # coord.join(threads)
+        record_filename = "./data_tf/gen.tfrecord"
+        mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+        with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
+            for j in range(10):
+                # record_filename = "%s/gen_%d.tfrecord"%('./data_tf',j)
+                # with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
+                    for k in range(100):
+                        random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
+                        batch_z_sample = z_pool[j][random_index[:]]
+                        samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )*255.0
+                        for count in range(self.batch_size):
+                            img_raw = np.reshape(samples[count,:,:,:],[28,28,1])
+                            img_raw = img_raw.astype(np.uint8).tostring()
+                            label_raw = np.zeros([10,])
+                            label_raw[int(j)] = 1
+                            label_raw = label_raw.astype(np.uint8).tostring()
+                            example = to_tfexample_raw(img_raw,label_raw)
+                            tfrecord_writer.write(example.SerializeToString())
+                # tfrecord_writer.close()
+            time.sleep(5)
+            for i in range(55000):
+                samples = np.reshape(mnist.train.images[i],[28,28,1])*255.0
+                img_raw = samples.astype(np.uint8).tostring()
 
-        for j in range(10):
-            record_filename = "%s/gen_%d.tfrecord"%('./data_tf',j)
-            with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
-                for k in range(100):
-                    random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
-                    batch_z_sample = z_pool[j][random_index[:]]
-                    samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )*255.0
-                    for count in range(self.batch_size):
-                        img_raw = np.reshape(samples[count,:,:,:],[28,28,1])
-                        img_raw = img_raw.astype(np.uint8).tostring()
-                        label_raw = int(j)
-                        example = to_tfexample_raw(img_raw,label_raw)
-                        tfrecord_writer.write(example.SerializeToString())
-                tfrecord_writer.close()
+                # label_raw =  np.where(mnist.train.labels[i]>0)[0][0]
+                label_raw = mnist.train.labels[i].astype(np.uint8).tostring()
+                # print (label_raw)
+                # print (label_raw.shape)
+                # raise
+                example = to_tfexample_raw(img_raw,label_raw)
+                tfrecord_writer.write(example.SerializeToString())
 
+            tfrecord_writer.close()
 
 
     def discriminator(self, image, y=None, reuse=False,name = None ):
@@ -482,52 +500,52 @@ class DCGAN(object):
             print(" [*] Failed to find a checkpoint")
             return False, 0
 
-
-flags = tf.app.flags
-flags.DEFINE_integer("iter", 9002, "iter to train ")
-flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
-flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
-flags.DEFINE_integer("sample_num", 64, "The size of sample images ")
-flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
-flags.DEFINE_integer("input_height", 28, "The size of image to use (will be center cropped). [108]")
-flags.DEFINE_integer("input_width", 28, "The size of image to use (will be center cropped). If None, same value as input_height [None]")
-flags.DEFINE_integer("output_height", 28, "The size of the output images to produce [64]")
-flags.DEFINE_integer("output_width", 28, "The size of the output images to produce. If None, same value as output_height [None]")
-flags.DEFINE_string("dataset", "5", "The name of dataset [...]")
-flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
-flags.DEFINE_string("checkpoint_dir", "./checkpoint", "Directory name to save the checkpoints [checkpoint]")
-flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image samples [samples]")
-flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
-flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
-flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-FLAGS = flags.FLAGS
-
-def main(_):
-
-    if not os.path.exists(FLAGS.checkpoint_dir):
-        os.makedirs(FLAGS.checkpoint_dir)
-    if not os.path.exists(FLAGS.sample_dir):
-        os.makedirs(FLAGS.sample_dir)
-
-    run_config = tf.ConfigProto()
-    run_config.gpu_options.allow_growth=True
-
-    with tf.Session(config = run_config) as sess:
-        dcgan = DCGAN(
-                sess,
-                input_width=FLAGS.input_width,
-                input_height=FLAGS.input_height,
-                output_width=FLAGS.output_width,
-                output_height=FLAGS.output_height,
-                batch_size=FLAGS.batch_size,
-                sample_num=FLAGS.sample_num,
-                # dataset_name=FLAGS.dataset,
-                input_fname_pattern=FLAGS.input_fname_pattern,
-                crop=FLAGS.crop,
-                checkpoint_dir=FLAGS.checkpoint_dir,
-                sample_dir=FLAGS.sample_dir)
-        dcgan.train(FLAGS)
-
-if __name__ == '__main__':
-    tf.app.run()
+#
+# flags = tf.app.flags
+# flags.DEFINE_integer("iter", 9002, "iter to train ")
+# flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
+# flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
+# flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
+# flags.DEFINE_integer("sample_num", 64, "The size of sample images ")
+# flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
+# flags.DEFINE_integer("input_height", 28, "The size of image to use (will be center cropped). [108]")
+# flags.DEFINE_integer("input_width", 28, "The size of image to use (will be center cropped). If None, same value as input_height [None]")
+# flags.DEFINE_integer("output_height", 28, "The size of the output images to produce [64]")
+# flags.DEFINE_integer("output_width", 28, "The size of the output images to produce. If None, same value as output_height [None]")
+# flags.DEFINE_string("dataset", "5", "The name of dataset [...]")
+# flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
+# flags.DEFINE_string("checkpoint_dir", "./checkpoint", "Directory name to save the checkpoints [checkpoint]")
+# flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image samples [samples]")
+# flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
+# flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
+# flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
+# FLAGS = flags.FLAGS
+#
+# def main(_):
+#
+#     if not os.path.exists(FLAGS.checkpoint_dir):
+#         os.makedirs(FLAGS.checkpoint_dir)
+#     if not os.path.exists(FLAGS.sample_dir):
+#         os.makedirs(FLAGS.sample_dir)
+#
+#     run_config = tf.ConfigProto()
+#     run_config.gpu_options.allow_growth=True
+#
+#     with tf.Session(config = run_config) as sess:
+#         dcgan = DCGAN(
+#                 sess,
+#                 input_width=FLAGS.input_width,
+#                 input_height=FLAGS.input_height,
+#                 output_width=FLAGS.output_width,
+#                 output_height=FLAGS.output_height,
+#                 batch_size=FLAGS.batch_size,
+#                 sample_num=FLAGS.sample_num,
+#                 # dataset_name=FLAGS.dataset,
+#                 input_fname_pattern=FLAGS.input_fname_pattern,
+#                 crop=FLAGS.crop,
+#                 checkpoint_dir=FLAGS.checkpoint_dir,
+#                 sample_dir=FLAGS.sample_dir)
+#         dcgan.train(FLAGS)
+#
+# if __name__ == '__main__':
+#     tf.app.run()
