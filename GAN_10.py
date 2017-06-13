@@ -355,6 +355,8 @@ class DCGAN(object):
 
         # coord.request_stop()
         # coord.join(threads)
+        if not os.path.exists('./data_tf'):
+            os.mkdir('./data_tf')
         record_filename = "./data_tf/gen.tfrecord"
         mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
         with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
