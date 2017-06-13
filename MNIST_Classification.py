@@ -21,11 +21,9 @@ class Classification_Model(object):
     def model_arg_scope(self, weight_decay=0.0005, is_training = True):
         with slim.arg_scope([slim.conv2d, slim.fully_connected],
                             activation_fn = tf.nn.relu,
-                            normalizer_fn = slim.batch_norm,
-                            normalizer_params={'is_training': is_training, 'decay': 0.9},
                             weights_regularizer=slim.l2_regularizer(weight_decay),
-                            weights_initializer=tf.truncated_normal_initializer(stddev=0.01)
-                            # biases_initializer=tf.zeros_initializer()
+                            weights_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                            biases_initializer=tf.zeros_initializer()
                             ):
             with slim.arg_scope([slim.conv2d, slim.max_pool2d], padding = 'SAME') as sc:
                 return sc
@@ -36,15 +34,22 @@ class Classification_Model(object):
                 if reuse:
                     net_scope.reuse_variables()
                 net = slim.conv2d(inputs, 16, [3, 3], scope='conv1')
+                net = tf.layers.batch_normalization(net, training = is_training)
                 net = slim.max_pool2d(net, [2, 2], scope='pool1')
                 net = slim.conv2d(net, 32, [3, 3], scope='conv2')
+                net = tf.layers.batch_normalization(net, training = is_training)
                 net = slim.conv2d(net, 64, [3, 3], scope='conv3')
+                net = tf.layers.batch_normalization(net, training = is_training)
                 net = slim.max_pool2d(net, [2, 2], scope='pool3')
                 net = slim.conv2d(net, 128, [3, 3], scope='conv4')
+                net = tf.layers.batch_normalization(net, training = is_training)
                 net = slim.conv2d(net, 256, [3, 3], scope='conv5')
+                net = tf.layers.batch_normalization(net, training = is_training)
                 net = slim.conv2d(net, 512, [3, 3], scope='conv6')
+                net = tf.layers.batch_normalization(net, training = is_training)
                 net = slim.avg_pool2d(net, [7, 7], stride = 1, scope='average_pool')
                 net = slim.flatten(net)
+                net = tf.layers.batch_normalization(net, training = is_training)
                 features = slim.fully_connected(net, self.feature_size, scope='features')
                 self.end_points['Features'] = features
                 logits = slim.fully_connected(features, 10, activation_fn = None, scope='logits')
@@ -142,7 +147,7 @@ class Classification_Model(object):
         return image,label
 
     def get_batch_tf(self,tfrecords_path):
-        tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
+        tfrecords_filename = glob(tfrecords_path + 'train.tfrecord')
         # print (tfrecords_filename)
         # print ('**************88')
         # raise
