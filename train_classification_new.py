@@ -12,12 +12,13 @@ from tensorflow.examples.tutorials.mnist import input_data
 def main(_):
 
     tf.logging.set_verbosity(tf.logging.DEBUG)
+    tfrecords_path = './data_tf/'
 
     with tf.Graph().as_default():
 
         #mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 
-        ckpt = tf.train.get_checkpoint_state(os.path.dirname('./checkpoints/checkpoint'))
+        ckpt = tf.train.get_checkpoint_state(os.path.dirname('./checkpoint_pretrain/checkpoint'))
 
         sess = tf.InteractiveSession()
 
@@ -27,15 +28,15 @@ def main(_):
         mnist_net = Classification_Model()
         mnist_net.change_dataset("5")
         x, y_ = mnist_net.get_batch()
-        #y_ = tf.one_hot(tf.ones([mnist_net.batch_size], dtype=tf.int32) * 5, depth=10)
+        # x,y_ = mnist_net.get_batch_tf(tfrecords_path)
 
-        arg_scope = mnist_net.model_arg_scope()
+        # arg_scope = mnist_net.model_arg_scope()
         end_points = {}
 
-        with slim.arg_scope(arg_scope):
-            logits, end_points = mnist_net.net(x)
-            losses = mnist_net.losses(logits, y_)
-            train_step = mnist_net.optimizer(0.001).minimize(losses, global_step=global_step)
+        # with slim.arg_scope(arg_scope):
+        logits, end_points = mnist_net.net(x)
+        losses = mnist_net.losses(logits, y_)
+        train_step = mnist_net.optimizer(0.001).minimize(losses, global_step=global_step)
 
         #total_loss = tf.losses.get_total_loss()
         summaries.add(tf.summary.image("img", tf.cast(x, tf.float32)))
@@ -105,7 +106,7 @@ def main(_):
             #         sum_accuracy += accuracy_str[0]
             #
             #     print ("accuracy: %f" % (sum_accuracy / 600.0))
-            #     saver.save(sess, "./checkpoints/",global_step=global_step_str)
+            #     saver.save(sess, "./checkpoint_pretrain/",global_step=global_step_str)
 
 
         # sum_accuracy = 0.0
@@ -118,7 +119,3 @@ def main(_):
 
 if __name__ == '__main__':
     tf.app.run()
-
-
-
-
