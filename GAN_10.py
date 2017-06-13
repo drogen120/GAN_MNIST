@@ -204,9 +204,9 @@ class DCGAN(object):
         current_num = []
         for i in range(10):
             d_optim.append(tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                      .minimize(self.d_loss[i], var_list=self.d_vars) )
+                      .minimize(self.d_loss[i], var_list=self.d_vars[i]) )
             g_optim.append(tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                      .minimize(self.g_loss[i], var_list=self.g_vars) )
+                      .minimize(self.g_loss[i], var_list=self.g_vars[i]) )
 
             z_pool.append(np.load('./outputs/features_%s.npy'%str(i)) )
             current_num.append( z_pool[i].shape[0] -1 )
