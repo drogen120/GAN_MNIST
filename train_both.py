@@ -13,7 +13,7 @@ slim = tf.contrib.slim
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("iter", 9002, "iter to train ")
+flags.DEFINE_integer("iter", 2, "iter to train ")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
@@ -30,7 +30,7 @@ flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image
 flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-flags.DEFINE_integer("C_iter", 100, "The iteration of training C")
+flags.DEFINE_integer("C_iter", 1000, "The iteration of training C")
 flags.DEFINE_integer("C_batch_size", 64, "The batch_size of extracting feature vector of C")
 FLAGS = flags.FLAGS
 
@@ -101,7 +101,7 @@ def start_C(iteration):
                                              sess.graph)
 
         correct_prediction = tf.equal(tf.argmax(end_points['Predictions'], 1), tf.argmax(y_, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32)) / mnist_net.batch_size
         summaries.add(tf.summary.scalar('accuracy', accuracy))
 
         summary_op = tf.summary.merge(list(summaries), name='summary_op')
@@ -118,6 +118,7 @@ def start_C(iteration):
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(coord=coord)
 
+        save_test = []
         for i in range(iteration):
             print('%diteration'%i,sess.run(accuracy))
             _,summary_str = sess.run([train_step,summary_op])
@@ -127,22 +128,38 @@ def start_C(iteration):
                 x_test = tf.placeholder(tf.float32, shape=[None, 28, 28, 1])
                 y_test = tf.placeholder(tf.float32, shape=[None, 10])
 
-                logits_test, end_points_test = mnist_net.net(x_test,is_training = False,reuse = True)
+                logits_test, end_points_test = mnist_net.net(x_test,is_training=True, reuse = True)
 
                 correct_prediction_test = tf.equal(tf.argmax(end_points_test['Predictions'], 1), tf.argmax(y_test, 1))
-                accuracy_test = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-                sum_accuracy_test = 0.0
+                # accuracy_test = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+                num_correct = tf.reduce_sum(tf.cast(correct_prediction_test,tf.float32))
+                sum_accuracy_test = 0
+                batch_size = 100
                 for count in range(100):
-                    test_batch = mnist.test.next_batch(100)
-                    accuracy_test_str = sess.run([accuracy_test],
-                        feed_dict={x_test: np.reshape(test_batch[0], (-1, 28, 28, 1)), y_test: test_batch[1]})
-                    sum_accuracy_test += accuracy_test_str[0]
-                print ("test accuracy is: %f" % (sum_accuracy_test /100.0 ))
-
+                    test_image = np.reshape(mnist.test.images[count*batch_size:(count+1)*batch_size],(batch_size,28,28,1))
+                    test_label = np.reshape(mnist.test.labels[count*batch_size:(count+1)*batch_size],(batch_size,10))
+                    # test_batch = mnist.test.next_batch(100)
+                    # accuracy_test_str = sess.run(accuracy_test,
+                    #     feed_dict={x_test: np.reshape(test_batch[0], (-1, 28, 28, 1)), y_test: test_batch[1]})
+                    num_c = sess.run(num_correct,
+                        feed_dict = {x_test:test_image, y_test:test_label})
+                    sum_accuracy_test += num_c
+                    # sum_accuracy_test += accuracy_test_str
+                # print ("test accuracy is: %f" % (sum_accuracy_test /100.0 ))
+                print ("test accuracy is: %f" % (sum_accuracy_test /10000.0 ))
+                if not save_test:
+                    save_test.append(sum_accuracy_test)
+                    save_test.append(sum_accuracy_test)
+                else :
+                    if sum_accuracy_test > save_test[0]:
+                        print ('u are getting better!!!!')
+                        break
+                    else:
+                        print('ops, not this time ~!')
+                        continue
         coord.request_stop()
         coord.join(threads)
-
+        saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
         time.sleep(3)
 
 
@@ -175,7 +192,7 @@ def get_feature(batch_size ,id ):
 
         mnist_net = Classification_Model()
 
-        logits, end_points = mnist_net.net(batch_images,is_training =False)
+        logits, end_points = mnist_net.net(batch_images,is_training =False,reuse = True)
 
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
