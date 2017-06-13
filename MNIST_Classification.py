@@ -12,8 +12,8 @@ class Classification_Model(object):
         self.img_size = 28
         self.feature_size = 100
         self.end_points = {}
-        self.input_fname_pattern = '*.png'
-        self.batch_size = 50
+        self.input_fname_pattern = '*.jpg'
+        self.batch_size = 64
 
     def transform(self, img):
         return img/127.5 - 1
@@ -24,32 +24,58 @@ class Classification_Model(object):
                             normalizer_fn = slim.batch_norm,
                             normalizer_params={'is_training': is_training, 'decay': 0.9},
                             weights_regularizer=slim.l2_regularizer(weight_decay),
-                            weights_initializer=tf.truncated_normal_initializer(stddev=0.01),
-                            biases_initializer=tf.zeros_initializer()
+                            weights_initializer=tf.truncated_normal_initializer(stddev=0.01)
+                            # biases_initializer=tf.zeros_initializer()
                             ):
             with slim.arg_scope([slim.conv2d, slim.max_pool2d], padding = 'SAME') as sc:
                 return sc
 
-    def net(self, inputs, is_training=True, dropout_keep_prob=0.5, reuse=None, scope='AlexNet'):
-
-        with tf.variable_scope(scope, 'AlexNet', [inputs], reuse=reuse):
-            net = slim.conv2d(inputs, 16, [3, 3], scope='conv1')
-            net = slim.max_pool2d(net, [2, 2], scope='pool1')
-            net = slim.conv2d(net, 32, [3, 3], scope='conv2')
-            net = slim.conv2d(net, 64, [3, 3], scope='conv3')
-            net = slim.max_pool2d(net, [2, 2], scope='pool3')
-            net = slim.conv2d(net, 128, [3, 3], scope='conv4')
-            net = slim.conv2d(net, 256, [3, 3], scope='conv5')
-            net = slim.conv2d(net, 512, [3, 3], scope='conv6')
-            net = slim.avg_pool2d(net, [7, 7], stride = 1, scope='average_pool')
-            net = slim.flatten(net)
-            features = slim.fully_connected(net, self.feature_size, scope='features')
-            self.end_points['Features'] = features
-            logits = slim.fully_connected(features, 10, activation_fn = None, scope='logits')
-            self.end_points['Logits'] = logits
-            predictions = tf.nn.softmax(logits, name='Predictions')
-            self.end_points['Predictions'] = predictions
+    def net(self, inputs, is_training=True, dropout_keep_prob=0.5, reuse=False, scope='AlexNet'):
+        with tf.variable_scope(scope, 'AlexNet', [inputs], reuse=reuse) as net_scope:
+            with slim.arg_scope(self.model_arg_scope(is_training = is_training)):
+                if reuse:
+                    net_scope.reuse_variables()
+                net = slim.conv2d(inputs, 16, [3, 3], scope='conv1')
+                net = slim.max_pool2d(net, [2, 2], scope='pool1')
+                net = slim.conv2d(net, 32, [3, 3], scope='conv2')
+                net = slim.conv2d(net, 64, [3, 3], scope='conv3')
+                net = slim.max_pool2d(net, [2, 2], scope='pool3')
+                net = slim.conv2d(net, 128, [3, 3], scope='conv4')
+                net = slim.conv2d(net, 256, [3, 3], scope='conv5')
+                net = slim.conv2d(net, 512, [3, 3], scope='conv6')
+                net = slim.avg_pool2d(net, [7, 7], stride = 1, scope='average_pool')
+                net = slim.flatten(net)
+                features = slim.fully_connected(net, self.feature_size, scope='features')
+                self.end_points['Features'] = features
+                logits = slim.fully_connected(features, 10, activation_fn = None, scope='logits')
+                self.end_points['Logits'] = logits
+                predictions = tf.nn.softmax(logits, name='Predictions')
+                self.end_points['Predictions'] = predictions
         return logits, self.end_points
+    #
+    # def net_test(self, inputs, is_training=False, dropout_keep_prob=0.5, reuse=True, scope='AlexNet'):
+    #     with tf.variable_scope(scope, 'AlexNet', [inputs], reuse=reuse) as net_scope:
+    #         with slim.arg_scope(self.model_arg_scope(is_training = False )):
+    #             if reuse:
+    #                 net_scope.reuse_variables()
+    #             net = slim.conv2d(inputs, 16, [3, 3], scope='conv1')
+    #             net = slim.max_pool2d(net, [2, 2], scope='pool1')
+    #             net = slim.conv2d(net, 32, [3, 3], scope='conv2')
+    #             net = slim.conv2d(net, 64, [3, 3], scope='conv3')
+    #             net = slim.max_pool2d(net, [2, 2], scope='pool3')
+    #             net = slim.conv2d(net, 128, [3, 3], scope='conv4')
+    #             net = slim.conv2d(net, 256, [3, 3], scope='conv5')
+    #             net = slim.conv2d(net, 512, [3, 3], scope='conv6')
+    #             net = slim.avg_pool2d(net, [7, 7], stride = 1, scope='average_pool')
+    #             net = slim.flatten(net)
+    #             features = slim.fully_connected(net, self.feature_size, scope='features')
+    #             self.end_points['Features'] = features
+    #             logits = slim.fully_connected(features, 10, activation_fn = None, scope='logits')
+    #             self.end_points['Logits'] = logits
+    #             predictions = tf.nn.softmax(logits, name='Predictions')
+    #             self.end_points['Predictions'] = predictions
+    #     return logits, self.end_points
+
 
     def losses(self, logits, labels, scope='model_losses'):
 
@@ -98,14 +124,16 @@ class Classification_Model(object):
             serialized_example,
             features ={
                 'image': tf.FixedLenFeature([],tf.string),
-                'label': tf.FixedLenFeature([],tf.int64),
+                'label': tf.FixedLenFeature([],tf.string),
             }
         )
-        label = tf.cast(features['label'],tf.int32)
+        label = tf.decode_raw(features['label'],tf.uint8)
         image = tf.decode_raw(features['image'],tf.uint8)
-        image = tf.reshape(image,(28,28,1))
 
-        num_preprocess_threads = 1
+        image = tf.reshape(image,(28,28,1))
+        label = tf.reshape(label,(10,))
+
+        num_preprocess_threads = 10
         min_queue_examples = 256
 
         image,label = tf.train.shuffle_batch([image,label],batch_size = self.batch_size,
@@ -115,6 +143,11 @@ class Classification_Model(object):
 
     def get_batch_tf(self,tfrecords_path):
         tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
-        filename_queue = tf.train.string_input_producer(tfrecords_filename,num_epochs = 100)
+        # print (tfrecords_filename)
+        # print ('**************88')
+        # raise
+        filename_queue = tf.train.string_input_producer(tfrecords_filename[:])
         image,label = self.read_tf(filename_queue)
+        image = tf.cast(image,tf.float32)
+        image = self.transform(image)
         return image,label
