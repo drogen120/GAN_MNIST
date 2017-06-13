@@ -246,7 +246,7 @@ class DCGAN(object):
         # z_pool = np.load('./outputs/features_5.npy')
         # current_num = z_pool.shape[0] -1
 
-        for i in xrange(counter,config.iter):
+        for i in xrange(counter,config.iter+counter):
             # batch_z = []
             # for j in range(10):
             #     random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
@@ -291,9 +291,9 @@ class DCGAN(object):
                     save_images(samples, [manifold_h, manifold_w],
                     './{}/{}/train_{:02d}.png'.format(config.sample_dir,str(j),i))
                     print ('succed save once ')
-            if np.mod(i, 1000) == 0:
-                self.save(self.checkpoint_dir, i)
-
+            # if np.mod(i, 1000) == 0:
+            #     self.save(self.checkpoint_dir, i)
+        self.save(self.checkpoint_dir,config.iter + counter)
         coord.request_stop()
         coord.join(threads)
 
