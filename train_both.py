@@ -160,7 +160,7 @@ def start_C(iteration,start = True):
                         else:
                             print('ops, not this time ~!')
                 else:
-                    if sum_accuracy_test >= 0.994:
+                    if sum_accuracy_test/10000.0 >= 0.994:
                         break
             _,summary_str = sess.run([train_step,summary_op])
             if i %10 == 0:
