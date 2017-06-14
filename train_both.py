@@ -13,7 +13,7 @@ slim = tf.contrib.slim
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("iter", 2, "iter to train ")
+flags.DEFINE_integer("iter", 8000, "iter to train ")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
@@ -30,7 +30,7 @@ flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image
 flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-flags.DEFINE_integer("C_iter", 1000, "The iteration of training C")
+flags.DEFINE_integer("C_iter", 250000, "The iteration of training C")
 flags.DEFINE_integer("C_batch_size", 64, "The batch_size of extracting feature vector of C")
 FLAGS = flags.FLAGS
 
@@ -120,11 +120,8 @@ def start_C(iteration):
 
         save_test = []
         for i in range(iteration):
-            print('%diteration'%i,sess.run(accuracy))
-            _,summary_str = sess.run([train_step,summary_op])
-            if i %10 == 0:
-                train_writer.add_summary(summary_str,i)
-            if i %100 == 0:
+
+            if i %100 == 0 :
                 x_test = tf.placeholder(tf.float32, shape=[None, 28, 28, 1])
                 y_test = tf.placeholder(tf.float32, shape=[None, 10])
 
@@ -146,17 +143,23 @@ def start_C(iteration):
                     sum_accuracy_test += num_c
                     # sum_accuracy_test += accuracy_test_str
                 # print ("test accuracy is: %f" % (sum_accuracy_test /100.0 ))
+                print('****************************')
                 print ("test accuracy is: %f" % (sum_accuracy_test /10000.0 ))
+                print('****************************')
                 if not save_test:
                     save_test.append(sum_accuracy_test)
-                    save_test.append(sum_accuracy_test)
                 else :
+                    save_test.append(sum_accuracy_test)
                     if sum_accuracy_test > save_test[0]:
                         print ('u are getting better!!!!')
                         break
                     else:
                         print('ops, not this time ~!')
-                        continue
+            _,summary_str = sess.run([train_step,summary_op])
+
+            if i %10 == 0:
+                train_writer.add_summary(summary_str,i)
+                print('%diteration'%i,sess.run(accuracy))
         coord.request_stop()
         coord.join(threads)
         saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
@@ -192,7 +195,7 @@ def get_feature(batch_size ,id ):
 
         mnist_net = Classification_Model()
 
-        logits, end_points = mnist_net.net(batch_images,is_training =False,reuse = True)
+        logits, end_points = mnist_net.net(batch_images)
 
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
@@ -229,10 +232,10 @@ def get_feature(batch_size ,id ):
 def main(_):
 
     while True:
-        start_C(FLAGS.C_iter)
         for i in range(10):
             get_feature(FLAGS.C_batch_size,i)
         start_GAN()
+        start_C(FLAGS.C_iter)
 
 if __name__ == '__main__':
     tf.app.run()
