@@ -13,7 +13,7 @@ slim = tf.contrib.slim
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("iter", 5, "iter to train ")
+flags.DEFINE_integer("iter", 8000, "iter to train ")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
@@ -30,7 +30,7 @@ flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image
 flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-flags.DEFINE_integer("C_iter", 100000, "The iteration of training C")
+flags.DEFINE_integer("C_iter", 1000000, "The iteration of training C")
 flags.DEFINE_integer("C_batch_size", 64, "The batch_size of extracting feature vector of C")
 FLAGS = flags.FLAGS
 
@@ -62,7 +62,7 @@ def start_GAN():
             dcgan.train(FLAGS)
 
 
-def start_C(iteration):
+def start_C(iteration,start = True):
 
     tf.logging.set_verbosity(tf.logging.DEBUG)
     tfrecords_path = './data_tf/'
@@ -123,8 +123,7 @@ def start_C(iteration):
 
         save_test = []
         for i in range(iteration):
-            if i == 1000:
-                saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
+
             if i %100 == 0 :
                 x_test = tf.placeholder(tf.float32, shape=[None, 28, 28, 1])
                 y_test = tf.placeholder(tf.float32, shape=[None, 10])
@@ -150,22 +149,26 @@ def start_C(iteration):
                 print('****************************')
                 print ("test accuracy is: %f" % (sum_accuracy_test /10000.0 ))
                 print('****************************')
-                # if not save_test:
-                #     save_test.append(sum_accuracy_test)
-                # else :
-                #     save_test.append(sum_accuracy_test)
-                #     if sum_accuracy_test > save_test[0]:
-                #         print ('u are getting better!!!!')
-                #         break
-                #     else:
-                #         print('ops, not this time ~!')
+                if start:
+                    if not save_test:
+                        save_test.append(sum_accuracy_test)
+                    else :
+                        save_test.append(sum_accuracy_test)
+                        if sum_accuracy_test > save_test[0]:
+                            print ('u are getting better!!!!')
+                            break
+                        else:
+                            print('ops, not this time ~!')
+                else:
+                    if sum_accuracy_test >= 0.994:
+                        break
             _,summary_str = sess.run([train_step,summary_op])
-
             if i %10 == 0:
                 train_writer.add_summary(summary_str,i)
                 print('%diteration'%i,sess.run(accuracy))
         coord.request_stop()
         coord.join(threads)
+        print ('saving model')
         saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
         time.sleep(3)
 
@@ -237,7 +240,7 @@ def main(_):
     # for i in range(10):
     #     get_feature(FLAGS.C_batch_size,i)
 
-    # start_C(FLAGS.C_iter)
+    start_C(FLAGS.C_iter,start= False)
     # start_GAN()
     while True:
         for i in range(10):
