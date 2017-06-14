@@ -277,7 +277,7 @@ class DCGAN(object):
                   % (str(j),i,time.time() - start_time, errD_fake+errD_real, errG))
                 print('**************************')
 
-            if np.mod(i ,1000) ==0:
+            if np.mod(i ,5000) ==0:
                 for j in range(10):
                     if not os.path.exists('./{}/{}'.format(config.sample_dir,str(j))):
                         os.makedirs('./{}/{}'.format(config.sample_dir,str(j)))
@@ -360,34 +360,44 @@ class DCGAN(object):
         record_filename = "./data_tf/gen.tfrecord"
         mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
         with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
-            for j in range(10):
-                # record_filename = "%s/gen_%d.tfrecord"%('./data_tf',j)
-                # with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
-                    for k in range(100):
-                        random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
-                        batch_z_sample = z_pool[j][random_index[:]]
-                        samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )*255.0
-                        for count in range(self.batch_size):
-                            img_raw = np.reshape(samples[count,:,:,:],[28,28,1])
-                            img_raw = img_raw.astype(np.uint8).tostring()
-                            label_raw = np.zeros([10,])
-                            label_raw[int(j)] = 1
-                            label_raw = label_raw.astype(np.uint8).tostring()
-                            example = to_tfexample_raw(img_raw,label_raw)
-                            tfrecord_writer.write(example.SerializeToString())
-                # tfrecord_writer.close()
-            time.sleep(5)
-            for i in range(55000):
-                samples = np.reshape(mnist.train.images[i],[28,28,1])*255.0
-                img_raw = samples.astype(np.uint8).tostring()
+            for k in range(100):
+                for j in range(10):
+                    random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
+                    batch_z_sample = z_pool[j][random_index[:]]
+                    samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )*255.0
+                    for count in range(self.batch_size):
+                        img_raw = np.reshape(samples[count,:,:,:],[28,28,1])
+                        img_raw = img_raw.astype(np.uint8).tostring()
+                        label_raw = np.zeros([10,])
+                        label_raw[int(j)] = 1
+                        label_raw = label_raw.astype(np.uint8).tostring()
+                        example = to_tfexample_raw(img_raw,label_raw)
+                        tfrecord_writer.write(example.SerializeToString())
+                    for i in range(55):
+                        samples = np.reshape(mnist.train.images[k*550 + j*55 + i],[28,28,1])*255.0
+                        img_raw = samples.astype(np.uint8).tostring()
 
-                # label_raw =  np.where(mnist.train.labels[i]>0)[0][0]
-                label_raw = mnist.train.labels[i].astype(np.uint8).tostring()
-                # print (label_raw)
-                # print (label_raw.shape)
-                # raise
-                example = to_tfexample_raw(img_raw,label_raw)
-                tfrecord_writer.write(example.SerializeToString())
+                        # label_raw =  np.where(mnist.train.labels[i]>0)[0][0]
+                        label_raw = mnist.train.labels[k*550 + j*55 + i].astype(np.uint8).tostring()
+                        # print (label_raw)
+                        # print (label_raw.shape)
+                        # raise
+                        example = to_tfexample_raw(img_raw,label_raw)
+                        tfrecord_writer.write(example.SerializeToString())
+
+            time.sleep(2)
+
+            # for i in range(55000):
+            #     samples = np.reshape(mnist.train.images[i],[28,28,1])*255.0
+            #     img_raw = samples.astype(np.uint8).tostring()
+            #
+            #     # label_raw =  np.where(mnist.train.labels[i]>0)[0][0]
+            #     label_raw = mnist.train.labels[i].astype(np.uint8).tostring()
+            #     # print (label_raw)
+            #     # print (label_raw.shape)
+            #     # raise
+            #     example = to_tfexample_raw(img_raw,label_raw)
+            #     tfrecord_writer.write(example.SerializeToString())
 
             tfrecord_writer.close()
 
