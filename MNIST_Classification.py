@@ -13,7 +13,7 @@ class Classification_Model(object):
         self.feature_size = 100
         self.end_points = {}
         self.input_fname_pattern = '*.jpg'
-        self.batch_size = 128
+        self.batch_size = 64
 
     def transform(self, img):
         return img/127.5 - 1
@@ -88,7 +88,7 @@ class Classification_Model(object):
     def optimizer(self, learning_rate, scope = 'model_optimizer'):
 
         with tf.name_scope(scope, 'model_optimizer'):
-            optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+            optimizer = tf.train.AdadeltaOptimizer(learning_rate)
 
         return optimizer
 
@@ -136,17 +136,14 @@ class Classification_Model(object):
         num_preprocess_threads = 10
         min_queue_examples = 256
 
-        # image,label = tf.train.shuffle_batch([image,label],batch_size = self.batch_size,
-        #     num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,
-        #         min_after_dequeue = min_queue_examples)
-        image,label = tf.train.batch([image,label],batch_size = self.batch_size,
+        image,label = tf.train.shuffle_batch([image,label],batch_size = self.batch_size,
             num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,
-                )
+                min_after_dequeue = min_queue_examples)
+
         return image,label
 
     def get_batch_tf(self,tfrecords_path):
-        # tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
-        tfrecords_filename = glob('/home/hpc/ssd/lyj/GAN_MNIST/train.tfrecord')
+        tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
         # print (tfrecords_filename)
         # print ('**************88')
         # raise
