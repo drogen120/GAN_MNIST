@@ -10,6 +10,9 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 # print(mnist.train.images.shape )
 # print(mnist.train.labels.shape)
+# print(mnist.train.images[0])
+# print (mnist.train.labels[0])
+# raise
 # print(mnist.test.images.shape )
 # print(mnist.test.labels.shape )
 # print(mnist.test.labels[0])
@@ -49,7 +52,7 @@ mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 #
 
 #test for read tf_record
-record_iterator = tf.python_io.tf_record_iterator(path = './gen.tfrecord')
+record_iterator = tf.python_io.tf_record_iterator(path = './data_tf_test/gen.tfrecord')
 count = 0
 for string_record in record_iterator:
 
