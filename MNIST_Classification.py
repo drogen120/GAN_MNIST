@@ -13,7 +13,7 @@ class Classification_Model(object):
         self.feature_size = 100
         self.end_points = {}
         self.input_fname_pattern = '*.jpg'
-        self.batch_size = 64
+        self.batch_size = 128
 
     def transform(self, img):
         return img/127.5 - 1
