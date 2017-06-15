@@ -88,7 +88,8 @@ class Classification_Model(object):
     def optimizer(self, learning_rate, scope = 'model_optimizer'):
 
         with tf.name_scope(scope, 'model_optimizer'):
-            optimizer = tf.train.AdadeltaOptimizer(learning_rate)
+            # optimizer = tf.train.AdadeltaOptimizer(learning_rate)
+            optimizer = tf.train.GradientDescentOptimizer(learning_rate)
 
         return optimizer
 
