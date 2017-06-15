@@ -13,7 +13,7 @@ slim = tf.contrib.slim
 
 
 flags = tf.app.flags
-flags.DEFINE_integer("iter", 8000, "iter to train ")
+flags.DEFINE_integer("iter", 6000, "iter to train ")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
@@ -154,13 +154,13 @@ def start_C(iteration,start = True):
                         save_test.append(sum_accuracy_test)
                     else :
                         save_test.append(sum_accuracy_test)
-                        if sum_accuracy_test > save_test[0]:
+                        if sum_accuracy_test > save_test[0] + 3 and sum_accuracy_test < 10000:
                             print ('u are getting better!!!!')
                             break
                         else:
                             print('ops, not this time ~!')
                 else:
-                    if sum_accuracy_test/10000.0 >= 0.994:
+                    if sum_accuracy_test/10000.0 >= 0.9949:
                         break
             _,summary_str = sess.run([train_step,summary_op])
             if i %10 == 0:
@@ -239,6 +239,14 @@ def get_feature(batch_size ,id ):
 def main(_):
     # for i in range(10):
     #     get_feature(FLAGS.C_batch_size,i)
+    if not os.path.exists('./data_tf'):
+        os.mkdir('./data_tf')
+    if not os.path.exists('./outputs'):
+        os.mkdir('./outputs')
+    if not os.path.exists('./train'):
+        os.mkdir('./train')
+    if not os.path.exists('./samples'):
+        os.mkdir('./samples')
 
     start_C(FLAGS.C_iter,start= False)
     # start_GAN()
