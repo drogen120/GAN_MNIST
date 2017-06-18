@@ -87,7 +87,7 @@ class Classification_Model(object):
         batch_labels = tf.one_hot(tf.ones([self.batch_size], dtype=tf.int32) * int(self.dataset_name), depth=10)
         return batch_images, batch_labels
 
-    def read_tf(self,filename_queue):
+    def read_tf(self,filename_queue,shuffle=True):
 
         reader = tf.TFRecordReader()
         _,serialized_example = reader.read(filename_queue)
@@ -107,19 +107,20 @@ class Classification_Model(object):
         num_preprocess_threads = 10
         min_queue_examples = 256
 
-        image,label = tf.train.shuffle_batch([image,label],batch_size = self.batch_size,
-            num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,
-                min_after_dequeue = min_queue_examples)
+        if shuffle :
+            image,label = tf.train.shuffle_batch([image,label],batch_size = self.batch_size,
+                num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,
+                    min_after_dequeue = min_queue_examples)
+        else :
+            image,label = tf.train.batch([image,label],batch_size = self.batch_size,
+                num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,)
 
         return image,label
 
-    def get_batch_tf(self,tfrecords_path):
+    def get_batch_tf(self,tfrecords_path,shuffle = True):
         tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
-        # print (tfrecords_filename)
-        # print ('**************88')
-        # raise
         filename_queue = tf.train.string_input_producer(tfrecords_filename[:])
-        image,label = self.read_tf(filename_queue)
+        image,label = self.read_tf(filename_queue,shuffle = shuffle)
         image = tf.cast(image,tf.float32)
         image = self.transform(image)
         label = tf.cast(label,tf.float32)
