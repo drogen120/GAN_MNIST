@@ -85,7 +85,7 @@ class DCGAN(object):
         min_queue_examples = 256
         image_reader = tf.WholeFileReader()
         for i in range(10):
-            self.file_list.append(glob(os.path.join("./data",str(i),self.input_fname_pattern)))
+            self.file_list.append(glob(os.path.join("./train_data",str(i),self.input_fname_pattern)))
             filename_queue.append(tf.train.string_input_producer(self.file_list[i][:]))
             _,image_file = image_reader.read(filename_queue[i])
             image = tf.image.decode_jpeg(image_file)
@@ -141,9 +141,9 @@ class DCGAN(object):
             self.D_.append(tmp_D_)
             self.D_logits_.append(tmp_D_logits_)
             self.d_loss_real.append(tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-                                    labels = tf.ones_like(self.D[i]), logits = self.D_logits[i] )))
+                                    labels = tf.ones_like(self.D[i]) - 0.1 , logits = self.D_logits[i] )))
             self.d_loss_fake.append(tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-                                    labels = tf.zeros_like(self.D_[i]), logits = self.D_logits_[i] )))
+                                    labels = tf.zeros_like(self.D_[i]) + 0.1, logits = self.D_logits_[i] )))
             self.g_loss.append(tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
                                     labels = tf.ones_like(self.D_[i]), logits = self.D_logits_[i] )))
             self.d_loss.append(self.d_loss_real[i] + self.d_loss_fake[i])
@@ -386,12 +386,13 @@ class DCGAN(object):
                     for i in range(55):
                         samples = np.reshape(mnist.train.images[k*550 + j*55 + i],[28,28,1])*255.0
                         img_raw = samples.astype(np.uint8).tostring()
-
-                        # label_raw =  np.where(mnist.train.labels[i]>0)[0][0]
                         label_raw = mnist.train.labels[k*550 + j*55 + i].astype(np.uint8).tostring()
-                        # print (label_raw)
-                        # print (label_raw.shape)
-                        # raise
+                        example = to_tfexample_raw(img_raw,label_raw)
+                        tfrecord_writer.write(example.SerializeToString())
+                    for i in range(5):
+                        samples = np.reshape(mnist.validation.images[k*50 + j*5 + i],[28,28,1])*255.0
+                        img_raw = samples.astype(np.uint8).tostring()
+                        label_raw = mnist.validation.labels[k*50 + j*5 + i].astype(np.uint8).tostring()
                         example = to_tfexample_raw(img_raw,label_raw)
                         tfrecord_writer.write(example.SerializeToString())
 
