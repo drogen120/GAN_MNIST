@@ -13,11 +13,8 @@ slim = tf.contrib.slim
 
 
 flags = tf.app.flags
-<<<<<<< HEAD
-flags.DEFINE_integer("iter", 10000, "iter to train ")
-=======
-flags.DEFINE_integer("iter", 6000, "iter to train ")
->>>>>>> 852e15f3596a405092192728fc6cca49c499447a
+
+flags.DEFINE_integer("iter", 8000, "iter to train ")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
@@ -164,11 +161,7 @@ def start_C(iteration,start = True):
                         else:
                             print('ops, not this time ~!')
                 else:
-<<<<<<< HEAD
                     if sum_accuracy_test/10000.0 >= 0.995:
-=======
-                    if sum_accuracy_test/10000.0 >= 0.9949:
->>>>>>> 852e15f3596a405092192728fc6cca49c499447a
                         break
             _,summary_str = sess.run([train_step,summary_op])
             if i %10 == 0:
@@ -245,8 +238,6 @@ def get_feature(batch_size ,id ):
         coord.join(threads)
 
 def main(_):
-<<<<<<< HEAD
-=======
     # for i in range(10):
     #     get_feature(FLAGS.C_batch_size,i)
     if not os.path.exists('./data_tf'):
@@ -257,7 +248,7 @@ def main(_):
         os.mkdir('./train')
     if not os.path.exists('./samples'):
         os.mkdir('./samples')
->>>>>>> 852e15f3596a405092192728fc6cca49c499447a
+
 
     start_C(FLAGS.C_iter,start= False)
 
