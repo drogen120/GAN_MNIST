@@ -7,7 +7,10 @@ from ops import *
 from utils import *
 import time
 from tensorflow.examples.tutorials.mnist import input_data
-from MNIST_Classification import Classification_Model
+# from MNIST_Classification import Classification_Model
+from MNIST_Classification_with_embedding import Classification_Model
+from tensorflow.contrib.tensorboard.plugins import projector
+
 from glob import glob
 slim = tf.contrib.slim
 
@@ -101,14 +104,16 @@ def start_C(iteration,start = True):
             losses = mnist_net.losses(logits, y_)
             train_step = mnist_net.optimizer(0.001).minimize(losses, global_step=global_step)
 
+        embedding, config = mnist_net.get_embedding('./checkpoint_pretrain/')
         #total_loss = tf.losses.get_total_loss()
         summaries.add(tf.summary.image("img", tf.cast(x, tf.float32)))
         summaries.add(tf.summary.scalar('loss', losses))
 
         for variable in tf.trainable_variables():
             summaries.add(tf.summary.histogram(variable.op.name, variable))
-        train_writer = tf.summary.FileWriter('./train',
-                                             sess.graph)
+        train_writer = tf.summary.FileWriter('./checkpoint_pretrain/train',sess.graph)
+
+        projector.visualize_embeddings(train_writer, config)
 
         correct_prediction = tf.equal(tf.argmax(end_points['Predictions'], 1), tf.argmax(y_, 1))
         accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32)) / mnist_net.batch_size
@@ -129,30 +134,34 @@ def start_C(iteration,start = True):
         threads = tf.train.start_queue_runners(coord=coord)
 
         save_test = []
+        x_test = tf.placeholder(tf.float32, shape=[None, 28, 28, 1])
+        y_test = tf.placeholder(tf.float32, shape=[None, 10])
+        logits_test, end_points_test = mnist_net.net(x_test,is_training=False, reuse = True)
+        correct_prediction_test = tf.equal(tf.argmax(end_points_test['Predictions'], 1), tf.argmax(y_test, 1))
+        num_correct = tf.reduce_sum(tf.cast(correct_prediction_test,tf.float32))
+
+        assignment = embedding.assign(end_points_test['Features'])
+
         for i in range(iteration):
 
             if i %100 == 0 :
-                x_test = tf.placeholder(tf.float32, shape=[None, 28, 28, 1])
-                y_test = tf.placeholder(tf.float32, shape=[None, 10])
+                # sum_accuracy_test = 0.0
+                # batch_size = 100
+                # for count in range(100):
+                #     test_image = np.reshape(mnist.test.images[count*batch_size:(count+1)*batch_size],(batch_size,28,28,1)) *2.0 -1
+                #     test_label = np.reshape(mnist.test.labels[count*batch_size:(count+1)*batch_size],(batch_size,10))
+                #     num_c = sess.run(num_correct,
+                #         feed_dict = {x_test:test_image, y_test:test_label})
+                #     sum_accuracy_test += num_c
 
-                logits_test, end_points_test = mnist_net.net(x_test,is_training=False, reuse = True)
+                test_batch_x = mnist.test.images[:10000] * 2.0 - 1
+                test_batch_y = mnist.test.labels[:10000]
+                sum_accuracy_test, _ = sess.run([num_correct, assignment],
+                    feed_dict={x_test: np.reshape(test_batch_x, (-1, 28, 28, 1)),
+                    y_test: test_batch_y})
+                print ("test accuracy is: %f" % (sum_accuracy_test /10000.0 ))
+                # saver.save(sess, "./checkpoint_pretrain/",global_step=global_step_str)
 
-                correct_prediction_test = tf.equal(tf.argmax(end_points_test['Predictions'], 1), tf.argmax(y_test, 1))
-                # accuracy_test = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-                num_correct = tf.reduce_sum(tf.cast(correct_prediction_test,tf.float32))
-                sum_accuracy_test = 0
-                batch_size = 100
-                for count in range(100):
-                    test_image = np.reshape(mnist.test.images[count*batch_size:(count+1)*batch_size],(batch_size,28,28,1)) *2.0 -1
-                    test_label = np.reshape(mnist.test.labels[count*batch_size:(count+1)*batch_size],(batch_size,10))
-                    # test_batch = mnist.test.next_batch(100)
-                    # accuracy_test_str = sess.run(accuracy_test,
-                    #     feed_dict={x_test: np.reshape(test_batch[0], (-1, 28, 28, 1)), y_test: test_batch[1]})
-                    num_c = sess.run(num_correct,
-                        feed_dict = {x_test:test_image, y_test:test_label})
-                    sum_accuracy_test += num_c
-                    # sum_accuracy_test += accuracy_test_str
-                # print ("test accuracy is: %f" % (sum_accuracy_test /100.0 ))
                 print('****************************')
                 print ("test accuracy is: %f" % (sum_accuracy_test /10000.0 ))
                 print('****************************')
@@ -161,7 +170,7 @@ def start_C(iteration,start = True):
                         save_test.append(sum_accuracy_test)
                     else :
                         save_test.append(sum_accuracy_test)
-                        if sum_accuracy_test > save_test[0] + 3 and sum_accuracy_test < 10000:
+                        if sum_accuracy_test > save_test[0] :
                             print ('u are getting better!!!!')
                             break
                         else:
@@ -208,7 +217,7 @@ def get_feature(batch_size ):
 
         mnist_net = Classification_Model()
         tfrecords_path = './data_tf/'
-        batch_images,labels = mnist_net.get_batch_tf(tfrecords_path)
+        batch_images,labels = mnist_net.get_batch_tf(tfrecords_path,shuffle = False)
 
         logits, end_points = mnist_net.net(batch_images,is_training =False)
 
