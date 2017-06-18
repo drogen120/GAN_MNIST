@@ -299,7 +299,7 @@ class DCGAN(object):
         # ........................
         # note that we do not save the GAN model in order to provent overfitting for GAN
         # **************************
-        # self.save(self.checkpoint_dir,config.iter + counter)
+        self.save(self.checkpoint_dir,config.iter + counter)
 
         coord.request_stop()
         coord.join(threads)
