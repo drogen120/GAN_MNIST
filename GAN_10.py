@@ -277,10 +277,13 @@ class DCGAN(object):
                   % (str(j),i,time.time() - start_time, errD_fake+errD_real, errG))
                 print('**************************')
 
-            if np.mod(i ,5000) ==0:
+            if np.mod(i ,2000) ==0:
                 for j in range(10):
                     if not os.path.exists('./{}/{}'.format(config.sample_dir,str(j))):
                         os.makedirs('./{}/{}'.format(config.sample_dir,str(j)))
+
+                    # batch_z_sample = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]) \
+                    #       .astype(np.float32)
 
                     random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
                     batch_z_sample = z_pool[j][random_index[:]]
@@ -293,7 +296,11 @@ class DCGAN(object):
                     print ('succed save once ')
             # if np.mod(i, 1000) == 0:
             #     self.save(self.checkpoint_dir, i)
-        self.save(self.checkpoint_dir,config.iter + counter)
+        # ........................
+        # note that we do not save the GAN model in order to provent overfitting for GAN
+        # **************************
+        # self.save(self.checkpoint_dir,config.iter + counter)
+
         coord.request_stop()
         coord.join(threads)
 
@@ -362,6 +369,9 @@ class DCGAN(object):
         with tf.python_io.TFRecordWriter(record_filename) as tfrecord_writer:
             for k in range(100):
                 for j in range(10):
+                    # batch_z_sample = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]) \
+                    #       .astype(np.float32)
+
                     random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num[j]).astype(np.int32)
                     batch_z_sample = z_pool[j][random_index[:]]
                     samples = self.sess.run(self.sampler_output[j],{self.z[j] : batch_z_sample} )*255.0
