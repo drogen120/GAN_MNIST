@@ -272,8 +272,6 @@ def main(_):
         os.mkdir('./data_tf')
     if not os.path.exists('./outputs'):
         os.mkdir('./outputs')
-    if not os.path.exists('./train'):
-        os.mkdir('./train')
     if not os.path.exists('./samples'):
         os.mkdir('./samples')
 
