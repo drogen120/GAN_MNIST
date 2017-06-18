@@ -44,7 +44,8 @@ def start_GAN():
 
     with tf.Graph().as_default():
         run_config = tf.ConfigProto()
-        run_config.gpu_options.allow_growth=True
+        # run_config.gpu_options.allow_growth=True
+        run_config.gpu_options.per_process_gpu_memory_fraction = 0.8
 
         with tf.Session(config = run_config) as sess:
             dcgan = GAN_10.DCGAN(
@@ -65,6 +66,11 @@ def start_GAN():
 
 def start_C(iteration,start = True):
 
+    run_config = tf.ConfigProto()
+    # run_config.gpu_options.allow_growth=True
+    run_config.gpu_options.per_process_gpu_memory_fraction = 0.8
+
+
     tf.logging.set_verbosity(tf.logging.DEBUG)
     tfrecords_path = './data_tf/'
 
@@ -74,7 +80,7 @@ def start_C(iteration,start = True):
 
         ckpt = tf.train.get_checkpoint_state(os.path.dirname('./checkpoint_pretrain/checkpoint'))
 
-        sess = tf.InteractiveSession()
+        sess = tf.InteractiveSession(config = run_config)
 
         global_step = slim.create_global_step()
         summaries = set(tf.get_collection(tf.GraphKeys.SUMMARIES))
@@ -174,27 +180,26 @@ def start_C(iteration,start = True):
         time.sleep(3)
 
 
-def get_feature(batch_size ,id ):
+def get_feature(batch_size ):
 
     with tf.Graph().as_default():
 
         ckpt = tf.train.get_checkpoint_state(os.path.dirname('./checkpoint_pretrain/checkpoint'))
         sess = tf.InteractiveSession()
 
-        num_preprocess_threads = 1
-        min_queue_examples = 256
-        image_reader = tf.WholeFileReader()
-
-        file_list = glob(os.path.join("./train_data",str(id),"*.jpg"))
-        filename_queue = tf.train.string_input_producer(file_list[:])
-        _,image_file = image_reader.read(filename_queue)
-        image = tf.image.decode_jpeg(image_file)
-        image = tf.cast(tf.reshape(image,shape = [28,28,1]), dtype = tf.float32)
-
-        batch_images = tf.train.batch([image],batch_size = batch_size,
-                                            num_threads = num_preprocess_threads,
-                                            capacity = min_queue_examples + 3*batch_size)
-        batch_images = batch_images/ 127.5 -1
+        # num_preprocess_threads = 1
+        # min_queue_examples = 256
+        # image_reader = tf.WholeFileReader()
+        # file_list = glob(os.path.join("./train_data",str(id),"*.jpg"))
+        # filename_queue = tf.train.string_input_producer(file_list[:])
+        # _,image_file = image_reader.read(filename_queue)
+        # image = tf.image.decode_jpeg(image_file)
+        # image = tf.cast(tf.reshape(image,shape = [28,28,1]), dtype = tf.float32)
+        #
+        # batch_images = tf.train.batch([image],batch_size = batch_size,
+        #                                     num_threads = num_preprocess_threads,
+        #                                     capacity = min_queue_examples + 3*batch_size)
+        # batch_images = batch_images/ 127.5 -1
 
         # summaries = set(tf.get_collection(tf.GraphKeys.SUMMARIES))
         # summaries.add(tf.summary.image("batch_img", tf.cast(batch_images, tf.float32)))
@@ -202,6 +207,8 @@ def get_feature(batch_size ,id ):
         # train_writer = tf.summary.FileWriter('./get_feature/%d'%id, sess.graph)
 
         mnist_net = Classification_Model()
+        tfrecords_path = './data_tf/'
+        batch_images,labels = mnist_net.get_batch_tf(tfrecords_path)
 
         logits, end_points = mnist_net.net(batch_images,is_training =False)
 
@@ -222,24 +229,36 @@ def get_feature(batch_size ,id ):
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(coord = coord )
 
-        all_features = np.zeros((batch_size*100,100))
+        # all_features = np.zeros((batch_size*100,100))
+        all_features = list(range(10))
+        for i in range(10):
+            all_features[i] = []
 
-        for count in range(100):
-            # summary_str = sess.run(summary_op)
-            # train_writer.add_summary(summary_str,count)
-            featurens_str = sess.run([end_points["Features"]])
-            all_features[count*batch_size:(count+1)*batch_size,:] = featurens_str[0]
+        # for count in range(100):
+        #     # summary_str = sess.run(summary_op)
+        #     # train_writer.add_summary(summary_str,count)
+        #     featurens_str = sess.run([end_points["Features"]])
+        #     all_features[count*batch_size:(count+1)*batch_size,:] = featurens_str[0]
 
-        np.save("./outputs/features_%d"%id,all_features)
+        for _ in range(2000):
+            features_str = sess.run(end_points["Features"])
+            label_current = sess.run(labels)
+            print ('getting feaure vectors ....')
+            for count in range(batch_size):
+                all_features[np.where(label_current[count]==1)[0][0]].append(features_str[count])
+        # np.save("./outputs/features_%d"%id,all_features)
+        for i in range(10):
+            np.save('./outputs/features_%d'%i,np.asarray(all_features[i]))
         print ('******************************')
-        print('succed save npz once with %d'%id)
+        # print('succed save npz once with %d'%id)
+        print ('succed save npz once')
         print ('******************************')
         coord.request_stop()
         coord.join(threads)
 
 def main(_):
-    # for i in range(10):
-    #     get_feature(FLAGS.C_batch_size,i)
+    if not os.path.exists('./checkpoint_pretrain'):
+        os.mkdir('./checkpoint_pretrain')
     if not os.path.exists('./data_tf'):
         os.mkdir('./data_tf')
     if not os.path.exists('./outputs'):
@@ -253,8 +272,9 @@ def main(_):
     start_C(FLAGS.C_iter,start= False)
 
     while True:
-        for i in range(10):
-            get_feature(FLAGS.C_batch_size,i)
+        # for i in range(10):
+        #     get_feature(FLAGS.C_batch_size,i)
+        get_feature(FLAGS.C_batch_size)
         start_GAN()
         start_C(FLAGS.C_iter)
 
