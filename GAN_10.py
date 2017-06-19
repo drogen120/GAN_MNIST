@@ -293,7 +293,7 @@ class DCGAN(object):
                     manifold_w = int(np.floor(np.sqrt(samples.shape[0])))
                     save_images(samples, [manifold_h, manifold_w],
                     './{}/{}/train_{:02d}.png'.format(config.sample_dir,str(j),i))
-                    print ('succed save once ')
+                    print ('succed save sample once ')
             # if np.mod(i, 1000) == 0:
             #     self.save(self.checkpoint_dir, i)
         # ........................
