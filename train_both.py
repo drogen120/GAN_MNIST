@@ -178,10 +178,10 @@ def start_C(iteration,start = True):
                 else:
                     if sum_accuracy_test/10000.0 >= 0.995:
                         break
-            _,summary_str = sess.run([train_step,summary_op])
+            _,summary_str,current_accuracy = sess.run([train_step,summary_op,accuracy])
             if i %10 == 0:
                 train_writer.add_summary(summary_str,i)
-                print('%diteration'%i,sess.run(accuracy))
+                print('%diteration'%i,current_accuracy)
         coord.request_stop()
         coord.join(threads)
         print ('saving model')
@@ -250,8 +250,7 @@ def get_feature(batch_size ):
         #     all_features[count*batch_size:(count+1)*batch_size,:] = featurens_str[0]
 
         for _ in range(2000):
-            features_str = sess.run(end_points["Features"])
-            label_current = sess.run(labels)
+            features_str,label_current = sess.run([end_points["Features"],labels])
             print ('getting feaure vectors ....')
             for count in range(batch_size):
                 all_features[np.where(label_current[count]==1)[0][0]].append(features_str[count])
