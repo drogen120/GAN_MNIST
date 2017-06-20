@@ -153,9 +153,6 @@ class Classification_Model(object):
 
     def get_batch_tf(self,tfrecords_path,shuffle = True):
         tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
-        # print (tfrecords_filename)
-        # print ('**************88')
-        # raise
         filename_queue = tf.train.string_input_producer(tfrecords_filename[:])
         image,label = self.read_tf(filename_queue,shuffle = shuffle)
         image = tf.cast(image,tf.float32)

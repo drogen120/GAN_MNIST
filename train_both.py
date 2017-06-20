@@ -17,7 +17,7 @@ slim = tf.contrib.slim
 
 flags = tf.app.flags
 
-flags.DEFINE_integer("iter", 8000, "iter to train ")
+flags.DEFINE_integer("iter", 2, "iter to train ")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
@@ -34,7 +34,7 @@ flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image
 flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-flags.DEFINE_integer("C_iter", 50000, "The iteration of training C")
+flags.DEFINE_integer("C_iter", 20000, "The iteration of training C")
 flags.DEFINE_integer("C_batch_size", 64, "The batch_size of extracting feature vector of C")
 FLAGS = flags.FLAGS
 
@@ -189,26 +189,26 @@ def start_C(iteration,start = True):
         time.sleep(3)
 
 
-def get_feature(batch_size ):
+def get_feature(batch_size,id = None ):
 
     with tf.Graph().as_default():
 
         ckpt = tf.train.get_checkpoint_state(os.path.dirname('./checkpoint_pretrain/checkpoint'))
         sess = tf.InteractiveSession()
 
-        # num_preprocess_threads = 1
-        # min_queue_examples = 256
-        # image_reader = tf.WholeFileReader()
-        # file_list = glob(os.path.join("./train_data",str(id),"*.jpg"))
-        # filename_queue = tf.train.string_input_producer(file_list[:])
-        # _,image_file = image_reader.read(filename_queue)
-        # image = tf.image.decode_jpeg(image_file)
-        # image = tf.cast(tf.reshape(image,shape = [28,28,1]), dtype = tf.float32)
-        #
-        # batch_images = tf.train.batch([image],batch_size = batch_size,
-        #                                     num_threads = num_preprocess_threads,
-        #                                     capacity = min_queue_examples + 3*batch_size)
-        # batch_images = batch_images/ 127.5 -1
+        num_preprocess_threads = 1
+        min_queue_examples = 256
+        image_reader = tf.WholeFileReader()
+        file_list = glob(os.path.join("./train_data",str(id),"*.jpg"))
+        filename_queue = tf.train.string_input_producer(file_list[:])
+        _,image_file = image_reader.read(filename_queue)
+        image = tf.image.decode_jpeg(image_file)
+        image = tf.cast(tf.reshape(image,shape = [28,28,1]), dtype = tf.float32)
+
+        batch_images = tf.train.batch([image],batch_size = batch_size,
+                                            num_threads = num_preprocess_threads,
+                                            capacity = min_queue_examples + 3*batch_size)
+        batch_images = batch_images/ 127.5 -1
 
         # summaries = set(tf.get_collection(tf.GraphKeys.SUMMARIES))
         # summaries.add(tf.summary.image("batch_img", tf.cast(batch_images, tf.float32)))
@@ -216,8 +216,8 @@ def get_feature(batch_size ):
         # train_writer = tf.summary.FileWriter('./get_feature/%d'%id, sess.graph)
 
         mnist_net = Classification_Model()
-        tfrecords_path = './data_tf/'
-        batch_images,labels = mnist_net.get_batch_tf(tfrecords_path,shuffle = False)
+        # tfrecords_path = './data_tf/'
+        # batch_images,labels = mnist_net.get_batch_tf(tfrecords_path,shuffle = False)
 
         logits, end_points = mnist_net.net(batch_images,is_training =False)
 
@@ -238,27 +238,27 @@ def get_feature(batch_size ):
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(coord = coord )
 
-        # all_features = np.zeros((batch_size*100,100))
-        all_features = list(range(10))
-        for i in range(10):
-            all_features[i] = []
+        all_features = np.zeros((batch_size*100,100))
 
-        # for count in range(100):
-        #     # summary_str = sess.run(summary_op)
-        #     # train_writer.add_summary(summary_str,count)
-        #     featurens_str = sess.run([end_points["Features"]])
-        #     all_features[count*batch_size:(count+1)*batch_size,:] = featurens_str[0]
+        # all_features = list(range(10))
+        # for i in range(10):
+        #     all_features[i] = []
 
-        for _ in range(2000):
-            features_str,label_current = sess.run([end_points["Features"],labels])
-            print ('getting feaure vectors ....')
-            for count in range(batch_size):
-                all_features[np.where(label_current[count]==1)[0][0]].append(features_str[count])
-        # np.save("./outputs/features_%d"%id,all_features)
-        for i in range(10):
-            np.save('./outputs/features_%d'%i,np.asarray(all_features[i]))
+        for count in range(100):
+            # summary_str = sess.run(summary_op)
+            # train_writer.add_summary(summary_str,count)
+            features_str = sess.run(end_points["Features"])
+            all_features[count*batch_size:(count+1)*batch_size,:] = features_str
+        # for _ in range(2000):
+        #     features_str,label_current = sess.run([end_points["Features"],labels])
+        #     print ('getting feaure vectors ....')
+        #     for count in range(batch_size):
+        #         all_features[np.where(label_current[count]==1)[0][0]].append(features_str[count])
+        np.save("./outputs/features_%d"%id,all_features)
+        # for i in range(10):
+        #     np.save('./outputs/features_%d'%i,np.asarray(all_features[i]))
         print ('******************************')
-        # print('succed save npz once with %d'%id)
+        print('succed save npz once with %d'%id)
         print ('succed save npz once')
         print ('******************************')
         coord.request_stop()
@@ -278,9 +278,9 @@ def main(_):
     start_C(FLAGS.C_iter,start= False)
 
     while True:
-        # for i in range(10):
-        #     get_feature(FLAGS.C_batch_size,i)
-        get_feature(FLAGS.C_batch_size)
+        for i in range(10):
+            get_feature(FLAGS.C_batch_size,i)
+        # get_feature(FLAGS.C_batch_size)
         start_GAN()
         start_C(FLAGS.C_iter)
 

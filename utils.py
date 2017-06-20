@@ -23,6 +23,50 @@ get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 #     values = [values]
 #   return tf.train.Feature(int64_list=tf.train.Int64List(value=values))
 
+
+def read_tf(filename_queue,shuffle=True,with_feature = False):
+
+    reader = tf.TFRecordReader()
+    _,serialized_example = reader.read(filename_queue)
+    features = tf.parse_single_example(
+        serialized_example,
+        features ={
+            'image': tf.FixedLenFeature([],tf.string),
+            'label': tf.FixedLenFeature([],tf.string),
+        }
+    )
+    label = tf.decode_raw(features['label'],tf.uint8)
+    image = tf.decode_raw(features['image'],tf.uint8)
+
+    image = tf.reshape(image,(28,28,1))
+    if not with_feature:
+        label = tf.reshape(label,(10,))
+    else:
+        label = tf.reshape(label,(100,))
+
+    num_preprocess_threads = 1
+    min_queue_examples = 256
+
+    if shuffle :
+        image,label = tf.train.shuffle_batch([image,label],batch_size = self.batch_size,
+            num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,
+                min_after_dequeue = min_queue_examples)
+    else :
+        image,label = tf.train.batch([image,label],batch_size = self.batch_size,
+            num_threads = num_preprocess_threads,capacity = min_queue_examples + 3*self.batch_size,)
+
+    return image,label
+
+def get_batch_tf(tfrecords_path,shuffle = True,with_feature = False):
+    tfrecords_filename = glob(tfrecords_path + '*.tfrecord')
+    filename_queue = tf.train.string_input_producer(tfrecords_filename[:])
+    image,label = read_tf(filename_queue,shuffle = shuffle,with_feature = with_feature)
+    image = tf.cast(image,tf.float32)
+    image = image/ 127.5 - 1
+    label = tf.cast(label,tf.float32)
+    return image,label
+
+
 def _bytes_feature(values):
   return tf.train.Feature(bytes_list=tf.train.BytesList(value=[values]))
 

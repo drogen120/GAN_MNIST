@@ -141,9 +141,9 @@ class DCGAN(object):
             self.D_.append(tmp_D_)
             self.D_logits_.append(tmp_D_logits_)
             self.d_loss_real.append(tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-                                    labels = tf.ones_like(self.D[i]) - 0.1 , logits = self.D_logits[i] )))
+                                    labels = tf.ones_like(self.D[i]) , logits = self.D_logits[i] )))
             self.d_loss_fake.append(tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-                                    labels = tf.zeros_like(self.D_[i]) + 0.1, logits = self.D_logits_[i] )))
+                                    labels = tf.zeros_like(self.D_[i]) , logits = self.D_logits_[i] )))
             self.g_loss.append(tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
                                     labels = tf.ones_like(self.D_[i]), logits = self.D_logits_[i] )))
             self.d_loss.append(self.d_loss_real[i] + self.d_loss_fake[i])

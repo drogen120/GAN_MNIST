@@ -76,7 +76,7 @@ class DCGAN(object):
         # self.c_dim = c_dim
         # self.grayscale = (self.c_dim == 1)
 
-        self.file_list = glob(os.path.join("./data",self.dataset_name,self.input_fname_pattern))
+        self.file_list = glob(os.path.join("./train_data",self.dataset_name,self.input_fname_pattern))
         filename_queue = tf.train.string_input_producer(self.file_list[:])
         image_reader = tf.WholeFileReader()
 
@@ -171,7 +171,7 @@ class DCGAN(object):
             counter = 0
             print(" [!] Load failed...")
 
-        z_pool = np.load('./outputs/features_5.npy')
+        z_pool = np.load('./outputs/features_2.npy')
         current_num = z_pool.shape[0] -1
         for i in xrange(counter,config.iter):
 
@@ -225,14 +225,30 @@ class DCGAN(object):
             #         # print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
             #     except:
             #         print("one pic error!...")
-            if (i > 3000):
-                sample_index = np.round(np.random.uniform(0,1-1e-20,[self.batch_size]) * current_num).astype(np.int32)
-                # sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
-                sample_z = np.zeros([self.batch_size,self.z_dim],dtype = np.float32)
-                sample_z = z_pool[random_index[:]]
-                samples = 255 * inverse_transform(self.sess.run(self.sampler,feed_dict = {self.z: sample_z}))
-                for num_images in range(self.sample_num):
-                    cv2.imwrite('./{}/{}/{:6d}_{:2d}.png'.format(self.sample_dir,self.dataset,i,num_images),samples[num_images,:,:,:])
+            # if (i % 1000 == 0):
+            #     sample_index = np.round(np.random.uniform(0,1-1e-20,[self.batch_size]) * current_num).astype(np.int32)
+            #     # sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
+            #     sample_z = np.zeros([self.batch_size,self.z_dim],dtype = np.float32)
+            #     sample_z = z_pool[random_index[:]]
+            #     samples = 255 * inverse_transform(self.sess.run(self.sampler,feed_dict = {self.z: sample_z}))
+            #     for num_images in range(self.sample_num):
+            #         cv2.imwrite('./{}/{}/{:6d}_{:2d}.png'.format(self.sample_dir,self.dataset,i,num_images),samples[num_images,:,:,:])
+
+            if np.mod(i ,200) ==0:
+
+                # batch_z_sample = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]) \
+                #       .astype(np.float32)
+
+                random_index = np.round(np.random.uniform(0,1,[self.batch_size]) * current_num).astype(np.int32)
+                batch_z_sample = z_pool[random_index[:]]
+
+                samples = self.sess.run(self.sampler,{self.z : batch_z_sample} )
+                manifold_h = int(np.ceil(np.sqrt(samples.shape[0])))
+                manifold_w = int(np.floor(np.sqrt(samples.shape[0])))
+                save_images(samples, [manifold_h, manifold_w],
+                './{}/{}/train_{:02d}.png'.format(config.sample_dir,2,i))
+                print ('succed save once ')
+
             if np.mod(i, 500) == 2:
                 self.save(self.checkpoint_dir, i)
 
@@ -248,7 +264,11 @@ class DCGAN(object):
             h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='d_h1_conv')))
             h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv')))
             h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, name='d_h3_conv')))
-            h4 = linear(tf.reshape(h3, [-1, 2*2*self.df_dim*8]), 1, 'd_h3_lin')
+
+            # h3 = tf.contrib.layers.flatten(h3)
+            # h3 = minibatch_discrimination(h3,self.z_dim)
+
+            h4 = linear(tf.contrib.layers.flatten(h3), 1, 'd_h3_lin')
 
             return tf.nn.sigmoid(h4), h4
 
@@ -350,30 +370,28 @@ class DCGAN(object):
             return False, 0
 
 
+flags = tf.app.flags
+flags.DEFINE_integer("iter", 10000, "iter to train ")
+flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
+flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
+flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
+flags.DEFINE_integer("sample_num", 64, "The size of sample images ")
+flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
+flags.DEFINE_integer("input_height", 28, "The size of image to use (will be center cropped). [108]")
+flags.DEFINE_integer("input_width", 28, "The size of image to use (will be center cropped). If None, same value as input_height [None]")
+flags.DEFINE_integer("output_height", 28, "The size of the output images to produce [64]")
+flags.DEFINE_integer("output_width", 28, "The size of the output images to produce. If None, same value as output_height [None]")
+flags.DEFINE_string("dataset", "2", "The name of dataset [...]")
+flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
+flags.DEFINE_string("checkpoint_dir", "./checkpoint", "Directory name to save the checkpoints [checkpoint]")
+flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image samples [samples]")
+flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
+flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
+flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
+FLAGS = flags.FLAGS
+
 
 def main(_):
-
-
-    flags = tf.app.flags
-    flags.DEFINE_integer("iter", 10000, "iter to train ")
-    flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
-    flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
-    flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
-    flags.DEFINE_integer("sample_num", 64, "The size of sample images ")
-    flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
-    flags.DEFINE_integer("input_height", 28, "The size of image to use (will be center cropped). [108]")
-    flags.DEFINE_integer("input_width", 28, "The size of image to use (will be center cropped). If None, same value as input_height [None]")
-    flags.DEFINE_integer("output_height", 28, "The size of the output images to produce [64]")
-    flags.DEFINE_integer("output_width", 28, "The size of the output images to produce. If None, same value as output_height [None]")
-    flags.DEFINE_string("dataset", "5", "The name of dataset [...]")
-    flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
-    flags.DEFINE_string("checkpoint_dir", "./checkpoint", "Directory name to save the checkpoints [checkpoint]")
-    flags.DEFINE_string("sample_dir", "./samples", "Directory name to save the image samples [samples]")
-    flags.DEFINE_boolean("train", True, "True for training, False for testing [False]")
-    flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]")
-    flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-    FLAGS = flags.FLAGS
-
 
     if not os.path.exists(FLAGS.checkpoint_dir):
         os.makedirs(FLAGS.checkpoint_dir)
