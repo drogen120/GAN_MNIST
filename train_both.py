@@ -172,11 +172,15 @@ def start_C(iteration,start = True):
                         save_test.append(sum_accuracy_test)
                         if sum_accuracy_test > save_test[0] :
                             print ('u are getting better!!!!')
+                            print ('saving model')
+                            saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
                             break
                         else:
                             print('ops, not this time ~!')
                 else:
                     if sum_accuracy_test/10000.0 >= 0.995:
+                        print ('saving model')
+                        saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
                         break
             _,summary_str,current_accuracy = sess.run([train_step,summary_op,accuracy])
             if i %10 == 0:
@@ -184,8 +188,8 @@ def start_C(iteration,start = True):
                 print('%diteration'%i,current_accuracy)
         coord.request_stop()
         coord.join(threads)
-        print ('saving model')
-        saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
+        # print ('saving model')
+        # saver.save(sess, "./checkpoint_pretrain/",global_step= global_step.eval())
         time.sleep(3)
 
 
